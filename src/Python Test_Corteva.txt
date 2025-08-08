@@ -130,10 +130,3 @@ http://127.0.0.1:8000/api/weather/stats?station_id=1&year_from=1985&year_to=1990
 Swagger UI: 
 http://127.0.0.1:8000/api/docs/
 
-OpenAPI JSON:
-http://127.0.0.1:8000/api/schema/
-
-
-git remote set-url origin https://github.com/<your-username>/code-challenge-template.git
-
-git remote set-url origin https://github.com/corteva/code-challenge-template.git
