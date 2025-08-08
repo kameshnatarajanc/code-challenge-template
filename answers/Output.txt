@@ -1,0 +1,21 @@
+# Included screenshots on the Outputs and runs please check screenshots folder
+
+django-admin startproject weatherapi
+cd weatherapi
+python manage.py startapp api
+python manage.py runserver
+
+
+Test:
+
+Daily records
+http://127.0.0.1:8000/api/weather?station_id=1&date_from=1985-01-01&date_to=1985-01-31&page=1
+
+Yearly stats
+http://127.0.0.1:8000/api/weather/stats?station_id=1&year_from=1985&year_to=1990&page=1
+
+Swagger UI: 
+http://127.0.0.1:8000/api/docs/
+
+OpenAPI JSON:
+http://127.0.0.1:8000/api/schema/
