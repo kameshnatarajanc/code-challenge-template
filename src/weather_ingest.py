@@ -1,23 +1,26 @@
 import os
 import psycopg2
-import json
 from datetime import datetime
 
 # Database connection config
 DB_CONFIG = {
     "dbname": "weather_db",
     "user": "postgres", 
-    "password": "Your_Password",
+    "password": "<Your_Password>",
     "host": "localhost",
     "port": 5432
 }
-DATA_DIR = "E:\BigData\Coding_Test\wx_data"
-#OUTPUT_DIR = r"E:\BigData\Coding_Test\output_json"
-
-#os.makedirs(OUTPUT_DIR, exist_ok=True)
+DATA_DIR = "<Your_Path>"
 
 def connect_db():
     return psycopg2.connect(**DB_CONFIG)
+
+# -----------------------------------------------------------------------------
+# ensure_station(cursor, station_code, state):
+#   - Ensures the given weather station exists in weather_station.
+#   - Inserts the station_code and state if not present -- > (ON CONFLICT do nothing).
+#   - Returns the station_id for use by inserts into weather_record.
+# -----------------------------------------------------------------------------
 
 def ensure_station(cursor, station_code, state):
     cursor.execute("""
@@ -28,12 +31,19 @@ def ensure_station(cursor, station_code, state):
     cursor.execute("SELECT station_id FROM weather_station WHERE station_code = %s", (station_code,))
     return cursor.fetchone()[0]
 
+# -----------------------------------------------------------------------------
+# ingest_file(conn, file_path, station_code, state='OH'):
+#   - Reads a single raw data file (tab-separated 4 columns).
+#   - Converts -9999 to NULL for all numeric fields.
+#   - Inserts rows into weather_record with de-dup via ON CONFLICT.
+#   - Logs the run in weather_ingest_log with start/end and row count.
+# -----------------------------------------------------------------------------
+
 def ingest_file(conn, file_path, station_code, state='OH'):
     with conn.cursor() as cur:
         station_id = ensure_station(cur, station_code, state)
         start_time = datetime.now()
         count = 0
-        ingested_rows = []
 
         with open(file_path, 'r') as f:
             for line in f:
@@ -69,14 +79,12 @@ def ingest_file(conn, file_path, station_code, state='OH'):
         """, (station_code, start_time, end_time, count))
         print(f"[{station_code}] Ingested {count} records.")
 
-        # # Save JSON output file
-        # if ingested_rows:
-        #     json_filename = os.path.join(OUTPUT_DIR,f"{station_code}_{start_time.strftime('%Y%m%d_%H%M%S')}.json")
-        #     with open(json_filename, "w") as jf:
-        #         json.dump(ingested_rows, jf, indent=4)
-        #     print(f"[{station_code}] Ingested {count} records. JSON saved to {json_filename}")
-        # else:
-        #     print(f"[{station_code}] No new records inserted, no JSON file created.")
+# -----------------------------------------------------------------------------
+# compute_statistics(conn):
+#   - Aggregates yearly stats per station from weather_record.
+#   - AVG ignores NULLs, so missing values (-9999 mapped to NULL) are excluded.
+#   - Upserts into weather_statistics via ON CONFLICT (station_id, year).
+## -----------------------------------------------------------------------------
 
 def compute_statistics(conn):
     with conn.cursor() as cur:
@@ -98,6 +106,12 @@ def compute_statistics(conn):
         """)
         print("[Stats] Yearly weather statistics updated.")
 
+# -----------------------------------------------------------------------------
+# main():
+#   - Connects to the database.
+#   - Iterates through all .txt files in DATA_DIR
+# -----------------------------------------------------------------------------
+
 def main():
     conn = connect_db()
     try:
@@ -113,4 +127,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
