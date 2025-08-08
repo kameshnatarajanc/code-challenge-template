@@ -1,0 +1,4 @@
+pip install psycopg2-binary
+pip install Django djangorestframework django-filter psycopg2-binary
+pip install drf-spectacular drf-spectacular[sidecar]
+pip install django-cors-headers

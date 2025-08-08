@@ -1,0 +1,115 @@
+import os
+import psycopg2
+import json
+from datetime import datetime
+
+# Database connection config
+DB_CONFIG = {
+    "dbname": "weather_db",
+    "user": "postgres", 
+    "password": "Intel2-123",
+    "host": "localhost",
+    "port": 5432
+}
+DATA_DIR = "E:\BigData\Coding_Test\wx_data"
+#OUTPUT_DIR = r"E:\BigData\Coding_Test\output_json"
+
+#os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+def connect_db():
+    return psycopg2.connect(**DB_CONFIG)
+
+def ensure_station(cursor, station_code, state):
+    cursor.execute("""
+        INSERT INTO weather_station (station_code, state)
+        VALUES (%s, %s)
+        ON CONFLICT (station_code) DO NOTHING
+    """, (station_code, state))
+    cursor.execute("SELECT station_id FROM weather_station WHERE station_code = %s", (station_code,))
+    return cursor.fetchone()[0]
+
+def ingest_file(conn, file_path, station_code, state='OH'):
+    with conn.cursor() as cur:
+        station_id = ensure_station(cur, station_code, state)
+        start_time = datetime.now()
+        count = 0
+        ingested_rows = []
+
+        with open(file_path, 'r') as f:
+            for line in f:
+                parts = line.strip().split()
+                if len(parts) != 4:
+                    continue
+                raw_date, max_temp, min_temp, precip = parts
+                try:
+                    date = datetime.strptime(raw_date, "%Y%m%d").date()
+                    max_temp = int(max_temp)
+                    min_temp = int(min_temp)
+                    precip = int(precip)
+
+                    cur.execute("""
+                        INSERT INTO weather_record (station_id, record_date, max_temp, min_temp, precipitation)
+                        VALUES (%s, %s, %s, %s, %s)
+                        ON CONFLICT (station_id, record_date) DO NOTHING
+                    """, (
+                        station_id, date,
+                        None if max_temp == -9999 else max_temp,
+                        None if min_temp == -9999 else min_temp,
+                        None if precip == -9999 else precip
+                    ))
+                    count += cur.rowcount
+
+                except Exception as e:
+                    print(f"Skipping line in {file_path}: {line.strip()} | Error: {e}")
+
+        end_time = datetime.now()
+        cur.execute("""
+            INSERT INTO weather_ingest_log (station_code, start_time, end_time, records_ingested)
+            VALUES (%s, %s, %s, %s)
+        """, (station_code, start_time, end_time, count))
+        print(f"[{station_code}] Ingested {count} records.")
+
+        # # Save JSON output file
+        # if ingested_rows:
+        #     json_filename = os.path.join(OUTPUT_DIR,f"{station_code}_{start_time.strftime('%Y%m%d_%H%M%S')}.json")
+        #     with open(json_filename, "w") as jf:
+        #         json.dump(ingested_rows, jf, indent=4)
+        #     print(f"[{station_code}] Ingested {count} records. JSON saved to {json_filename}")
+        # else:
+        #     print(f"[{station_code}] No new records inserted, no JSON file created.")
+
+def compute_statistics(conn):
+    with conn.cursor() as cur:
+        cur.execute("""
+            INSERT INTO weather_statistics (station_id, year, avg_max_temp_celsius, avg_min_temp_celsius, total_precipitation_cm)
+            SELECT
+                station_id,
+                EXTRACT(YEAR FROM record_date)::INT AS year,
+                ROUND(AVG(max_temp)::NUMERIC / 10.0, 2),
+                ROUND(AVG(min_temp)::NUMERIC / 10.0, 2),
+                ROUND(SUM(precipitation)::NUMERIC / 100.0, 2)
+            FROM weather_record
+            GROUP BY station_id, EXTRACT(YEAR FROM record_date)
+            ON CONFLICT (station_id, year) DO UPDATE
+            SET
+                avg_max_temp_celsius = EXCLUDED.avg_max_temp_celsius,
+                avg_min_temp_celsius = EXCLUDED.avg_min_temp_celsius,
+                total_precipitation_cm = EXCLUDED.total_precipitation_cm;
+        """)
+        print("[Stats] Yearly weather statistics updated.")
+
+def main():
+    conn = connect_db()
+    try:
+        for filename in os.listdir(DATA_DIR):
+            if filename.endswith(".txt"):
+                station_code = filename.replace(".txt", "")
+                file_path = os.path.join(DATA_DIR, filename)
+                ingest_file(conn, file_path, station_code)
+        compute_statistics(conn)
+        conn.commit()
+    finally:
+        conn.close()
+
+if __name__ == "__main__":
+    main()
