@@ -1,0 +1,56 @@
+Weather Api Challenge:
+
+Description
+This is a Weather API Application to perform api calls to fetch respective weather records and weather statistics data of different stations.
+
+Framework :
+Django
+
+API Endpoints
+/api/weather/
+/api/weather/stats/
+/docs
+
+Running the Project:
+
+django-admin startproject weatherapi
+cd weatherapi
+python manage.py startapp api
+python manage.py runserver
+
+
+Test:
+
+Daily records
+http://127.0.0.1:8000/api/weather?station_id=1&date_from=1985-01-01&date_to=1985-01-31&page=1
+
+Yearly stats
+http://127.0.0.1:8000/api/weather/stats?station_id=1&year_from=1985&year_to=1990&page=1
+
+Swagger UI: 
+http://127.0.0.1:8000/api/docs/
+
+
+Extra Credit - Deployment : AWS Migration Suggestion.
+----------------------------------------------------
+
+AWS Elastic Beanstalk
+Easiest to deploy Django with Gunicorn + Nginx.
+
+AWS ECS (Fargate)
+Containerize Django (Docker), run serverless containers.
+
+AWS Lambda + API Gateway
+Convert Django to serverless using Zappa or Mangum.
+
+Amazon RDS for PostgreSQL - Database
+
+Scheduled Ingestion Job
+AWS Lambda
+Storage for Raw Data - S3 Bucket
+
+CI/CD for API
+AWS CodePipeline + CodeBuild or GitHub Actions
+
+Monitoring
+Amazon CloudWatc
