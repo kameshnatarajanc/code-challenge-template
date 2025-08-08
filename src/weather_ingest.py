@@ -7,7 +7,7 @@ from datetime import datetime
 DB_CONFIG = {
     "dbname": "weather_db",
     "user": "postgres", 
-    "password": "Intel2-123",
+    "password": "Your_Password",
     "host": "localhost",
     "port": 5432
 }
@@ -113,3 +113,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
